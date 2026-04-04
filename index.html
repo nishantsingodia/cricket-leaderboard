@@ -85,7 +85,9 @@ body::before{
 .um-p .um-edge-badge{font-size:0.55em;background:var(--gold);color:var(--bg);padding:0px 4px;border-radius:3px;font-weight:700}
 .um-p .um-players{display:flex;flex-wrap:wrap;gap:2px}
 .um-player-chip{font-size:0.75em;padding:2px 6px;border-radius:3px;background:rgba(255,255,255,0.05);color:var(--text2);white-space:nowrap}
-.um-player-chip.is-cvc{color:var(--gold2);background:var(--gold-dim)}
+.um-player-chip.is-c{background:rgba(22,163,74,0.15);color:#4ade80;border:1px solid rgba(22,163,74,0.3)}
+.um-player-chip.is-vc{background:rgba(249,115,22,0.15);color:#fb923c;border:1px solid rgba(249,115,22,0.3)}
+.um-player-chip.is-b{background:rgba(6,182,212,0.15);color:#22d3ee;border:1px solid rgba(6,182,212,0.3)}
 
 /* Past match performance grid */
 .perf-grid{background:var(--card);border:1px solid var(--border);border-radius:14px;overflow:hidden;margin-bottom:20px}
@@ -507,7 +509,7 @@ function renderUpcoming(teams,cfg){
     </div>
     <div class="um-edge">${edge.filter(e=>e.count>0).sort((a,b)=>b.count-a.count).map(e=>`<div class="um-p ${e.hasEdge?'has-edge':''}">
         <div class="um-pname">${e.name}${e.hasEdge?' <span class="um-edge-badge">EDGE</span>':''}</div>
-        <div class="um-players">${e.players.map(p=>`<span class="um-player-chip ${p.role==='C'||p.role==='VC'?'is-cvc':''}">${p.name}</span>`).join('')}</div>
+        <div class="um-players">${e.players.map(p=>`<span class="um-player-chip ${p.role==='C'?'is-c':p.role==='VC'?'is-vc':p.role==='B'?'is-b':''}">${p.name}</span>`).join('')}</div>
       </div>`).join('')}</div>
   </div>`;
 }
