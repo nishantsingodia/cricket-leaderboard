@@ -747,7 +747,7 @@ function renderH2H(d,cfg){
     <div class="cols">${teamCol(L,lWin,cfg)}${teamCol(R,!lWin,cfg)}</div>
     ${renderPerfGrid([L,R])}
     ${renderHeatmap([L,R])}
-    <div class="ts">Auto-refresh every 5 min</div>`;
+    <div class="ts">Click REFRESH for latest data</div>`;
 }
 
 function renderMulti(d,cfg){
@@ -777,7 +777,7 @@ function renderMulti(d,cfg){
   html+='</div>';
   html+=renderPerfGrid(d.teams);
   html+=renderHeatmap(d.teams);
-  html+=`<div class="ts">Auto-refresh every 5 min</div>`;
+  html+=`<div class="ts">Click REFRESH for latest data</div>`;
   return html;
 }
 
@@ -842,7 +842,7 @@ async function loadAll(){
 }
 
 loadAll();
-setInterval(loadAll,5*60*1000);
+// Manual refresh only via REFRESH button
 </script>
 </body>
 </html>
