@@ -252,12 +252,14 @@ const IPL_TEAM_NAMES={CSK:'Chennai Super Kings',MI:'Mumbai Indians',RCB:'Royal C
 // ═══════════════════════════════════════════════════════════════
 const AUCTIONS=[
   {id:'5way',name:'5Way',type:'multi',desc:'5-Way Auction — Best 27',ef:'15k',prize:'1st:40k | 2nd:30k | 3rd:5k',
-   source:'gas',gasSheet:'20. IPL',bestN:27,
+   source:'jsonp',sheetId:'1fxjoBHceJCC22w1RHGY7do21CNBpB8YZywPOh6-E-9k',mainSheet:'20. IPL',
+   bestN:27,
    teams:['Pushap','Nishant','Sharan','Pradeep','Arif'],
    teamCols:[{nc:1,pc:2,prc:3,ptc:4},{nc:6,pc:7,prc:8,ptc:9},{nc:11,pc:12,prc:13,ptc:14},{nc:16,pc:17,prc:18,ptc:19},{nc:21,pc:22,prc:23,ptc:24}],
-   budgetRow:2,spentRow:3,dataStart:9,dataEnd:44,totalRow:45,bestRow:46},
+   budgetRow:0,spentRow:1,dataStart:5,dataEnd:39,totalRow:40,bestRow:41},
   {id:'5mini',name:'5WayMini',type:'multi',desc:'5-Way Mini — Total',ef:'5k',prize:'1st:15k | 2nd:10k',
-   source:'gas',gasSheet:'21. IPL 2',bestN:null,extra:'2x games: 8, 12, 13, 23, 37',
+   source:'jsonp',sheetId:'1fxjoBHceJCC22w1RHGY7do21CNBpB8YZywPOh6-E-9k',mainSheet:'21. IPL 2',
+   bestN:null,extra:'2x games: 8, 12, 13, 23, 37',
    teams:['Pushap','Nishant','Sharan','Pradeep','Arif'],
    teamCols:[{nc:1,pc:2,prc:3,ptc:4},{nc:6,pc:7,prc:8,ptc:9},{nc:11,pc:12,prc:13,ptc:14},{nc:16,pc:17,prc:18,ptc:19},{nc:21,pc:22,prc:23,ptc:24}],
    budgetRow:3,spentRow:4,dataStart:10,dataEnd:20,totalRow:22,bestRow:null},
@@ -280,6 +282,12 @@ let matchData={matches:[],playerPoints:{}}; // per-player per-match points
 // ═══════════════════════════════════════════════════════════════
 async function fetchGAS(s){const r=await fetch(`${GAS_URL}?sheet=${encodeURIComponent(s)}&_t=${Date.now()}`,{cache:'no-store'});const d=await r.json();if(d.error)throw new Error(d.error);return d}
 
+// Fetch sheet via JSONP and return {values} format (same as GAS)
+async function fetchSheetAsRows(sid,sn){
+  const rows=await fetchSheet(sid,sn);
+  return{values:rows};
+}
+
 let _jc=0;
 function fetchSheet(sid,sn){return new Promise((res,rej)=>{const cb=`_cb${_jc++}`;const url=`https://docs.google.com/spreadsheets/d/${sid}/gviz/tq?tqx=out:json;responseHandler:${cb}&sheet=${encodeURIComponent(sn)}`;const to=setTimeout(()=>{cl();rej(new Error('Timeout'))},15000);function cl(){clearTimeout(to);delete window[cb];if(s.parentNode)s.parentNode.removeChild(s)}window[cb]=function(d){cl();try{res(d.table.rows.map(r=>r.c.map(c=>(c&&c.v!=null)?c.v:null)))}catch(e){rej(e)}};const s=document.createElement('script');s.src=url;s.onerror=()=>{cl();rej(new Error('Load failed'))};document.head.appendChild(s)})}
 
@@ -288,8 +296,8 @@ function fetchSheet(sid,sn){return new Promise((res,rej)=>{const cb=`_cb${_jc++}
 // ═══════════════════════════════════════════════════════════════
 async function parsePointsSheet(){
   try{
-    const data=await fetchGAS('20.1 IPL (points)');
-    const vals=data.values;
+    const rows=await fetchSheet('1fxjoBHceJCC22w1RHGY7do21CNBpB8YZywPOh6-E-9k','20.1 IPL (points)');
+    const vals=rows;
     // Find match boundaries — scan for "Match X" headers in col 9
     let matches=[];
     for(let i=0;i<vals.length;i++){
@@ -390,15 +398,47 @@ function getTeamMatchTotals(players){
 // C/VC DETECTION
 // ═══════════════════════════════════════════════════════════════
 async function detectCV(cfg){
-  if(cfg.source==='gas')return; // GAS gives us bg colors directly
+  if(!cfg.sheetId)return;
   try{
-    const pUrl=`https://sheets.googleapis.com/v4/spreadsheets/${cfg.sheetId}?key=${API_KEY}&includeGridData=true&ranges=${encodeURIComponent(cfg.mainSheet)}!B7:E52&fields=sheets.data.rowData.values(userEnteredValue)`;
-    const nUrl=`https://sheets.googleapis.com/v4/spreadsheets/${cfg.sheetId}?key=${API_KEY}&includeGridData=true&ranges=${encodeURIComponent(cfg.mainSheet)}!H7:J52&fields=sheets.data.rowData.values(userEnteredValue)`;
-    const [pR,nR]=await Promise.all([fetch(pUrl),fetch(nUrl)]);
-    const [pD,nD]=await Promise.all([pR.json(),nR.json()]);
-    const extract=(rows,ni,fi)=>{const C=[],VC=[],B=[];for(const r of rows){const v=r.values||[];if(v.length<=fi)continue;const n=v[ni]?.userEnteredValue?.stringValue||'';const f=v[fi]?.userEnteredValue?.formulaValue||'';if(!n||!f)continue;if(/\*2[\s,)]/.test(f)||f.includes('*2,'))C.push(n);else if(f.includes('*1.5'))VC.push(n);else if(f.includes('*0.75'))B.push(n)}return{C,VC,B}};
-    CV[cfg.id]={[cfg.teams[0]]:extract(pD.sheets?.[0]?.data?.[0]?.rowData||[],1,3),[cfg.teams[1]]:extract(nD.sheets?.[0]?.data?.[0]?.rowData||[],0,2)};
-  }catch(e){CV[cfg.id]={}}
+    // Fetch ALL columns with formulas to detect C/VC/B for all teams
+    const range=cfg.type==='h2h'?'B7:J52':'A1:Y45';
+    const url=`https://sheets.googleapis.com/v4/spreadsheets/${cfg.sheetId}?key=${API_KEY}&includeGridData=true&ranges=${encodeURIComponent(cfg.mainSheet)}!${range}&fields=sheets.data.rowData.values(userEnteredValue,effectiveFormat.backgroundColor)`;
+    const resp=await fetch(url);
+    const d=await resp.json();
+    const rows=d.sheets?.[0]?.data?.[0]?.rowData||[];
+
+    if(cfg.type==='h2h'){
+      const extract=(rows,ni,fi)=>{const C=[],VC=[],B=[];for(const r of rows){const v=r.values||[];if(v.length<=fi)continue;const n=v[ni]?.userEnteredValue?.stringValue||'';const f=v[fi]?.userEnteredValue?.formulaValue||'';if(!n||!f)continue;if(/\*2[\s,)]/.test(f)||f.includes('*2,'))C.push(n);else if(f.includes('*1.5'))VC.push(n);else if(f.includes('*0.75'))B.push(n)}return{C,VC,B}};
+      CV[cfg.id]={[cfg.teams[0]]:extract(rows,2,4),[cfg.teams[1]]:extract(rows,7,9)};
+    } else {
+      // Multi-team: check each team's points column for formulas + bg colors for B
+      CV[cfg.id]={};
+      const cols=cfg.teamCols;
+      for(let t=0;t<cfg.teams.length;t++){
+        const C=[],VC=[],B=[];
+        const pc=cols[t].pc, ptc=cols[t].ptc;
+        for(const r of rows){
+          const v=r.values||[];
+          if(v.length<=ptc)continue;
+          const name=v[pc]?.userEnteredValue?.stringValue||'';
+          const f=v[ptc]?.userEnteredValue?.formulaValue||'';
+          const bg=v[pc]?.effectiveFormat?.backgroundColor||{};
+          const rr=bg.red||1,gg=bg.green||1,bb=bg.blue||1;
+          if(!name)continue;
+          // Check formula
+          if(f){
+            if(/\*2[\s,)]/.test(f)||f.includes('*2,'))C.push(name);
+            else if(f.includes('*1.5'))VC.push(name);
+            else if(f.includes('*0.75'))B.push(name);
+          }
+          // Fallback: check bg color for B (teal)
+          if(!f && Math.abs(rr-0.82)<0.05 && Math.abs(gg-0.88)<0.05 && Math.abs(bb-0.89)<0.05) B.push(name);
+        }
+        CV[cfg.id][cfg.teams[t]]={C,VC,B};
+      }
+    }
+    console.log('CV detected:',cfg.id,CV[cfg.id]);
+  }catch(e){console.warn('CV detection failed:',e);CV[cfg.id]={}}
 }
 
 function getCVBadge(aid,team,name){
@@ -534,8 +574,11 @@ function renderHeatmap(allTeamsData){
 // ═══════════════════════════════════════════════════════════════
 // PARSERS
 // ═══════════════════════════════════════════════════════════════
-function parseMulti(gasData,cfg){
-  const{values:vals,backgrounds:bgs}=gasData;
+function parseMulti(rawData,cfg){
+  // rawData can be GAS {values,backgrounds} or JSONP rows
+  const isGAS=rawData.values!=null;
+  const vals=isGAS?rawData.values:rawData;
+  const bgs=isGAS?rawData.backgrounds:null;
   const result={teams:[],bestN:cfg.bestN};
   for(let t=0;t<cfg.teams.length;t++){
     const tc=cfg.teamCols[t];
@@ -545,11 +588,20 @@ function parseMulti(gasData,cfg){
     for(let i=cfg.dataStart;i<=cfg.dataEnd;i++){
       const row=vals[i];if(!row)continue;
       const name=row[tc.pc];if(!name||name==='')continue;
-      const bg=bgs[i]?.[tc.pc]||'#ffffff';
+      // Detect role: from CV lookup (Sheets API), or GAS backgrounds as fallback
       let role='';
-      if(bg==='#00ff00'||bg==='#93c47d')role='C';
-      else if(bg==='#ff9900'||bg==='#f6b26b')role='VC';
-      else if(bg==='#d0e0e3'||bg==='#00ffff'||bg==='#a2c4c9'||bg==='#76a5af')role='B';
+      const cvLookup=CV[cfg.id]?.[cfg.teams[t]];
+      if(cvLookup){
+        const nn=normName(name);
+        if(cvLookup.C?.some(n=>normName(n)===nn))role='C';
+        else if(cvLookup.VC?.some(n=>normName(n)===nn))role='VC';
+        else if(cvLookup.B?.some(n=>normName(n)===nn))role='B';
+      } else if(bgs){
+        const bg=bgs[i]?.[tc.pc]||'#ffffff';
+        if(bg==='#00ff00'||bg==='#93c47d')role='C';
+        else if(bg==='#ff9900'||bg==='#f6b26b')role='VC';
+        else if(bg==='#d0e0e3'||bg==='#00ffff'||bg==='#a2c4c9')role='B';
+      }
       team.players.push({name,price:row[tc.prc]||0,pts:row[tc.ptc]||0,role,
         gp:getPlayerGP(name),iplTeam:IPL_TEAMS[name]||'',matchPts:getPlayerMatchPts(name)});
     }
@@ -754,11 +806,15 @@ async function loadAll(){
   await parsePointsSheet();
   for(const a of AUCTIONS){
     try{
+      await detectCV(a);
       if(a.source==='gas'){
         const gasData=await fetchGAS(a.gasSheet);
         cache[a.id]=parseMulti(gasData,a);
+      }else if(a.type==='multi'){
+        const rows=await fetchSheet(a.sheetId,a.mainSheet);
+        cache[a.id]=parseMulti(rows,a);
       }else{
-        await Promise.all([a.pointsSheet?countMatches(a):Promise.resolve(),detectCV(a)]);
+        if(a.pointsSheet)await countMatches(a);
         const rows=await fetchSheet(a.sheetId,a.mainSheet);
         cache[a.id]=parseH2H(rows,a);
       }
