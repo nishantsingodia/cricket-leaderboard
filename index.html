@@ -154,7 +154,9 @@ td.pts.neg{color:var(--red)}
 td.pts.zero{color:var(--text3);opacity:0.4}
 td.gp{text-align:center;font-size:0.7em;color:var(--text2)}
 td.iplteam{font-size:0.6em;color:var(--text3);text-align:center}
-tr.top5 td:nth-child(2){color:var(--gold2);font-weight:600}
+tr.is-c td:nth-child(2){color:#4ade80;font-weight:600}
+tr.is-vc td:nth-child(2){color:#fb923c;font-weight:600}
+tr.is-b td:nth-child(2){color:#22d3ee;font-weight:600}
 tr.zeroed td{opacity:0.2}
 tr.zeroed td:nth-child(2){text-decoration:line-through}
 tfoot td{padding:10px 8px;font-family:'Oswald',sans-serif;font-weight:600;border-top:2px solid var(--border)}
@@ -667,7 +669,7 @@ function roleBadge(r){return r==='C'?'<span class="c-badge">C</span>':r==='VC'?'
 let _prid=0;
 function playerRows(ps){
   return ps.map((p,i)=>{
-    const cls=[];if(i<5)cls.push('top5');if(p.pts===0&&p.gp===0)cls.push('zeroed');
+    const cls=[];if(p.role==='C')cls.push('is-c');else if(p.role==='VC')cls.push('is-vc');else if(p.role==='B')cls.push('is-b');if(p.pts===0&&p.gp===0)cls.push('zeroed');
     cls.push('expandable-row');
     const rid=`pr${_prid++}`;
     // Mini match bars
