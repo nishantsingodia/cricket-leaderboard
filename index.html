@@ -459,23 +459,30 @@ function getCVBadge(aid,team,name){
 // ═══════════════════════════════════════════════════════════════
 // UPCOMING MATCH
 // ═══════════════════════════════════════════════════════════════
-function getNextMatch(){
+function getNextMatches(){
   const today=new Date().toISOString().slice(0,10);
-  // Find first match on or after today
+  // Find first game day on or after today
+  let nextDate=null;
+  const matches=[];
   for(const m of IPL_SCHEDULE){
-    if(m.date>=today)return m;
+    if(m.date>=today){
+      if(!nextDate)nextDate=m.date;
+      if(m.date===nextDate)matches.push(m);
+      else break;
+    }
   }
-  return null;
+  return matches;
 }
 
-function getUpcomingEdge(teams,nextMatch){
-  if(!nextMatch)return null;
-  const playing=[nextMatch.team1,nextMatch.team2];
+function getUpcomingEdge(teams,nextMatches){
+  if(!nextMatches.length)return null;
+  const playing=new Set();
+  for(const m of nextMatches){playing.add(m.team1);playing.add(m.team2)}
   const result=[];
   for(const t of teams){
     const playersInMatch=t.players.filter(p=>{
       const iplTeam=IPL_TEAMS[p.name];
-      return iplTeam&&playing.includes(iplTeam);
+      return iplTeam&&playing.has(iplTeam);
     });
     result.push({name:t.name,count:playersInMatch.length,
       players:playersInMatch.map(p=>({name:p.name,role:p.role,team:IPL_TEAMS[p.name]||''})),
@@ -487,17 +494,19 @@ function getUpcomingEdge(teams,nextMatch){
 }
 
 function renderUpcoming(teams,cfg){
-  const next=getNextMatch();
-  if(!next)return'';
-  const edge=getUpcomingEdge(teams,next);
+  const nextMatches=getNextMatches();
+  if(!nextMatches.length)return'';
+  const edge=getUpcomingEdge(teams,nextMatches);
   if(!edge)return'';
   const maxP=Math.max(...edge.map(e=>e.count),1);
-  const dateStr=new Date(next.date+'T00:00:00').toLocaleDateString('en-IN',{month:'short',day:'numeric',weekday:'short'});
+  const dateStr=new Date(nextMatches[0].date+'T00:00:00').toLocaleDateString('en-IN',{month:'short',day:'numeric',weekday:'short'});
+  const matchups=nextMatches.map(m=>`<span class="um-t t1">${m.team1}</span><span class="um-vs-sm">VS</span><span class="um-t t2">${m.team2}</span>`).join('<span style="margin:0 8px;color:var(--text3)">|</span>');
+  const metas=nextMatches.map(m=>`M${m.num}`).join(', ');
   return`<div class="upcoming">
     <div class="um-top">
       <div class="um-label">NEXT</div>
-      <div class="um-matchup"><span class="um-t t1">${next.team1}</span><span class="um-vs-sm">VS</span><span class="um-t t2">${next.team2}</span></div>
-      <div class="um-meta">M${next.num} · ${dateStr} · ${next.venue}</div>
+      <div class="um-matchup">${matchups}</div>
+      <div class="um-meta">${metas} · ${dateStr}</div>
     </div>
     <div class="um-edge">${edge.filter(e=>e.count>0).sort((a,b)=>b.count-a.count).map(e=>`<div class="um-p ${e.hasEdge?'has-edge':''}">
         <div class="um-pname">${e.name}${e.hasEdge?' <span class="um-edge-badge">EDGE</span>':''}</div>
