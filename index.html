@@ -307,7 +307,12 @@ async function parsePointsSheet(){
         matches.push({num,teams:[],start:i});
       }
     }
-    if(!matches.length)matches.push({num:1,teams:[],start:0});
+    // If data exists before first "Match X" header, add implicit Match 1
+    if(!matches.length){
+      matches.push({num:1,teams:[],start:0});
+    } else if(matches[0].start>0){
+      matches.unshift({num:1,teams:[],start:0});
+    }
     // Get teams per match + player points
     const playerPts={};
     for(let mi=0;mi<matches.length;mi++){
@@ -802,11 +807,11 @@ function renderContent(){
 async function loadAll(){
   renderTabs();
   document.getElementById('content').innerHTML='<div class="loading"><div class="spin"></div><br>Fetching live data...</div>';
-  // Parse points sheet first (shared data)
-  await parsePointsSheet();
+  // Parse points sheet first (shared data) — don't let it block auctions
+  try{await parsePointsSheet()}catch(e){console.warn('Points parse failed:',e)}
   for(const a of AUCTIONS){
     try{
-      await detectCV(a);
+      try{await detectCV(a)}catch(e){console.warn('CV detect failed:',e)}
       if(a.source==='gas'){
         const gasData=await fetchGAS(a.gasSheet);
         cache[a.id]=parseMulti(gasData,a);
