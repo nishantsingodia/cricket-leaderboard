@@ -278,7 +278,7 @@ let matchData={matches:[],playerPoints:{}}; // per-player per-match points
 // ═══════════════════════════════════════════════════════════════
 // DATA FETCHING
 // ═══════════════════════════════════════════════════════════════
-async function fetchGAS(s){const r=await fetch(`${GAS_URL}?sheet=${encodeURIComponent(s)}`);const d=await r.json();if(d.error)throw new Error(d.error);return d}
+async function fetchGAS(s){const r=await fetch(`${GAS_URL}?sheet=${encodeURIComponent(s)}&_t=${Date.now()}`,{cache:'no-store'});const d=await r.json();if(d.error)throw new Error(d.error);return d}
 
 let _jc=0;
 function fetchSheet(sid,sn){return new Promise((res,rej)=>{const cb=`_cb${_jc++}`;const url=`https://docs.google.com/spreadsheets/d/${sid}/gviz/tq?tqx=out:json;responseHandler:${cb}&sheet=${encodeURIComponent(sn)}`;const to=setTimeout(()=>{cl();rej(new Error('Timeout'))},15000);function cl(){clearTimeout(to);delete window[cb];if(s.parentNode)s.parentNode.removeChild(s)}window[cb]=function(d){cl();try{res(d.table.rows.map(r=>r.c.map(c=>(c&&c.v!=null)?c.v:null)))}catch(e){rej(e)}};const s=document.createElement('script');s.src=url;s.onerror=()=>{cl();rej(new Error('Load failed'))};document.head.appendChild(s)})}
