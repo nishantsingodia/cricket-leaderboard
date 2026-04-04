@@ -677,10 +677,8 @@ function renderH2H(d,cfg){
       <div class="mid"><div class="vs">VS</div><div class="delta ${lWin?'pos':'neg'}">${lWin?L.name:R.name} +${delta}</div><div class="ef">${cfg.prize} | EF ${cfg.ef}</div></div>
       <div class="team ${!lWin?'w':'l'}"><div class="name">${R.name}</div><div class="score">${R.best.toLocaleString()}</div><div class="sub">Best ${d.bestN} of ${R.players.length}</div></div>
     </div></div>
-    <div class="progress"><span class="label">Matches</span><div class="bar"><div class="fill" style="width:${pct}%"></div></div><span class="count">${mi.played} / ${cfg.totalMatches}</span></div>
-    ${mi.list.length?`<div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:20px">${mi.list.map(m=>`<span class="chip">M${m.num}: ${m.teams}</span>`).join('')}</div>`:''}
-    ${renderPerfGrid([L,R])}
     <div class="cols">${teamCol(L,lWin,cfg)}${teamCol(R,!lWin,cfg)}</div>
+    ${renderPerfGrid([L,R])}
     ${renderHeatmap([L,R])}
     <div class="ts">Auto-refresh every 5 min</div>`;
 }
