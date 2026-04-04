@@ -580,8 +580,8 @@ function renderHeatmap(allTeamsData){
 // PARSERS
 // ═══════════════════════════════════════════════════════════════
 function parseMulti(rawData,cfg){
-  // rawData can be GAS {values,backgrounds} or JSONP rows
-  const isGAS=rawData.values!=null;
+  // rawData can be GAS {values,backgrounds} or JSONP rows (plain array)
+  const isGAS=!Array.isArray(rawData)&&rawData.values!=null;
   const vals=isGAS?rawData.values:rawData;
   const bgs=isGAS?rawData.backgrounds:null;
   const result={teams:[],bestN:cfg.bestN};
@@ -811,19 +811,22 @@ async function loadAll(){
   try{await parsePointsSheet()}catch(e){console.warn('Points parse failed:',e)}
   for(const a of AUCTIONS){
     try{
-      try{await detectCV(a)}catch(e){console.warn('CV detect failed:',e)}
+      try{await detectCV(a)}catch(e){console.warn('CV detect failed for '+a.id+':',e)}
       if(a.source==='gas'){
         const gasData=await fetchGAS(a.gasSheet);
         cache[a.id]=parseMulti(gasData,a);
       }else if(a.type==='multi'){
+        console.log('Fetching multi:',a.id,a.sheetId,a.mainSheet);
         const rows=await fetchSheet(a.sheetId,a.mainSheet);
+        console.log('Got rows:',rows.length,'row5:',rows[5]?.slice(0,6),'total row:',rows[a.totalRow]?.slice(0,6));
         cache[a.id]=parseMulti(rows,a);
+        console.log('Parsed:',a.id,cache[a.id].teams?.map(t=>t.name+':'+t.best));
       }else{
         if(a.pointsSheet)await countMatches(a);
         const rows=await fetchSheet(a.sheetId,a.mainSheet);
         cache[a.id]=parseH2H(rows,a);
       }
-    }catch(e){cache[a.id]={error:`${a.name}: ${e.message}`}}
+    }catch(e){console.error('AUCTION LOAD FAIL:',a.id,e);cache[a.id]={error:`${a.name}: ${e.message}`}}
   }
   renderContent();
 }
