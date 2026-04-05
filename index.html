@@ -410,7 +410,7 @@ async function detectCV(cfg){
   if(!cfg.sheetId)return;
   try{
     // Fetch ALL columns with formulas to detect C/VC/B for all teams
-    const range=cfg.type==='h2h'?'B7:J52':'A1:Y45';
+    const range=cfg.type==='h2h'?'A7:J52':'A1:Y45';
     const url=`https://sheets.googleapis.com/v4/spreadsheets/${cfg.sheetId}?key=${API_KEY}&includeGridData=true&ranges=${encodeURIComponent(cfg.mainSheet)}!${range}&fields=sheets.data.rowData.values(userEnteredValue,effectiveFormat.backgroundColor)`;
     const resp=await fetch(url);
     const d=await resp.json();
@@ -649,7 +649,7 @@ function parseH2H(rows,cfg){
   for(const t of[L,R]){
     t.players.forEach(p=>{
       const badge=getCVBadge(cfg.id,t.name,p.name);
-      p.role=badge.includes('c-badge')?'C':badge.includes('vc-badge')?'VC':badge.includes('b-badge')?'B':'';
+      const cvL=CV[cfg.id]?.[t.name];const nn=s=>s.toLowerCase().replace(/[^a-z ]/g,'').trim();const pn=nn(p.name);p.role=cvL?.C?.some(x=>nn(x)===pn)?'C':cvL?.VC?.some(x=>nn(x)===pn)?'VC':cvL?.B?.some(x=>nn(x)===pn)?'B':'';
     });
     const sorted=[...t.players].sort((a,b)=>b.pts-a.pts);
     const top=new Set(sorted.slice(0,cfg.bestN).map(p=>p.name));
