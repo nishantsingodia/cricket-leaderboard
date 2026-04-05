@@ -436,7 +436,7 @@ async function detectCV(cfg){
           if(!name)continue;
           if(bg==='#00ff00'||bg==='#93c47d')C.push(name);
           else if(bg==='#ff9900'||bg==='#f6b26b')VC.push(name);
-          else if(bg==='#d0e0e3'||bg==='#00ffff'||bg==='#a2c4c9')B.push(name);
+          else if(bg==='#00ffff')B.push(name); // only bright cyan = 0.75x (5WayMini)
         }
         CV[cfg.id][cfg.teams[t]]={C,VC,B};
       }
