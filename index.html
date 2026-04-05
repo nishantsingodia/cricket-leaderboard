@@ -417,7 +417,7 @@ async function detectCV(cfg){
     const rows=d.sheets?.[0]?.data?.[0]?.rowData||[];
 
     if(cfg.type==='h2h'){
-      const extract=(rows,ni,fi)=>{const C=[],VC=[],B=[];for(const r of rows){const v=r.values||[];if(v.length<=fi)continue;const n=v[ni]?.userEnteredValue?.stringValue||'';const f=v[fi]?.userEnteredValue?.formulaValue||'';if(!n||!f)continue;if(/\*2[\s,)]/.test(f)||f.includes('*2,'))C.push(n);else if(f.includes('*1.5'))VC.push(n);else if(f.includes('*0.75'))B.push(n)}return{C,VC,B}};
+      const extract=(rows,ni,fi)=>{const C=[],VC=[],B=[];for(const r of rows){const v=r.values||[];if(v.length<=fi)continue;const n=v[ni]?.userEnteredValue?.stringValue||'';if(!n)continue;const f=v[fi]?.userEnteredValue?.formulaValue||'';if(f){if(/\*2[\s,)]/.test(f)||f.includes('*2,'))C.push(n);else if(f.includes('*1.5'))VC.push(n);else if(f.includes('*0.75'))B.push(n)}else{const bg=v[ni]?.effectiveFormat?.backgroundColor||{};const rr=bg.red||1,gg=bg.green||1,bb=bg.blue||1;if(Math.abs(rr-0.82)<0.05&&Math.abs(gg-0.88)<0.05&&Math.abs(bb-0.89)<0.05)B.push(n)}}return{C,VC,B}};
       CV[cfg.id]={[cfg.teams[0]]:extract(rows,2,4),[cfg.teams[1]]:extract(rows,7,9)};
     } else {
       // Multi-team: check each team's points column for formulas + bg colors for B
