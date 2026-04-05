@@ -257,13 +257,13 @@ const IPL_TEAM_NAMES={CSK:'Chennai Super Kings',MI:'Mumbai Indians',RCB:'Royal C
 const AUCTIONS=[
   {id:'5way',name:'5Way',type:'multi',desc:'5-Way Auction — Best 27',ef:'15k',prize:'1st:40k | 2nd:30k | 3rd:5k',
    source:'jsonp',sheetId:'1fxjoBHceJCC22w1RHGY7do21CNBpB8YZywPOh6-E-9k',mainSheet:'20. IPL',
-   bestN:27,
+   gasSheet:'20. IPL',gasDataStart:9,gasDataEnd:44,bestN:27,
    teams:['Pushap','Nishant','Sharan','Pradeep','Arif'],
    teamCols:[{nc:1,pc:2,prc:3,ptc:4},{nc:6,pc:7,prc:8,ptc:9},{nc:11,pc:12,prc:13,ptc:14},{nc:16,pc:17,prc:18,ptc:19},{nc:21,pc:22,prc:23,ptc:24}],
    budgetRow:0,spentRow:1,dataStart:5,dataEnd:39,totalRow:40,bestRow:41},
   {id:'5mini',name:'5WayMini',type:'multi',desc:'5-Way Mini — Total',ef:'5k',prize:'1st:15k | 2nd:10k',
    source:'jsonp',sheetId:'1fxjoBHceJCC22w1RHGY7do21CNBpB8YZywPOh6-E-9k',mainSheet:'21. IPL 2',
-   bestN:null,extra:'2x games: 8, 12, 13, 23, 37',
+   gasSheet:'21. IPL 2',gasDataStart:10,gasDataEnd:20,bestN:null,extra:'2x games: 8, 12, 13, 23, 37',
    teams:['Pushap','Nishant','Sharan','Pradeep','Arif'],
    teamCols:[{nc:1,pc:2,prc:3,ptc:4},{nc:6,pc:7,prc:8,ptc:9},{nc:11,pc:12,prc:13,ptc:14},{nc:16,pc:17,prc:18,ptc:19},{nc:21,pc:22,prc:23,ptc:24}],
    budgetRow:0,spentRow:1,dataStart:5,dataEnd:15,totalRow:16,bestRow:null},
@@ -409,39 +409,34 @@ function getTeamMatchTotals(players){
 async function detectCV(cfg){
   if(!cfg.sheetId)return;
   try{
-    // Fetch ALL columns with formulas to detect C/VC/B for all teams
-    const range=cfg.type==='h2h'?'B7:J52':'A1:Y45';
-    const url=`https://sheets.googleapis.com/v4/spreadsheets/${cfg.sheetId}?key=${API_KEY}&includeGridData=true&ranges=${encodeURIComponent(cfg.mainSheet)}!${range}&fields=sheets.data.rowData.values(userEnteredValue,effectiveFormat.backgroundColor)`;
-    const resp=await fetch(url);
-    const d=await resp.json();
-    const rows=d.sheets?.[0]?.data?.[0]?.rowData||[];
-
     if(cfg.type==='h2h'){
+      // H2H: detect from formulas via Sheets API
+      const range='B7:J52';
+      const url=`https://sheets.googleapis.com/v4/spreadsheets/${cfg.sheetId}?key=${API_KEY}&includeGridData=true&ranges=${encodeURIComponent(cfg.mainSheet)}!${range}&fields=sheets.data.rowData.values(userEnteredValue)`;
+      const resp=await fetch(url);
+      const d=await resp.json();
+      const rows=d.sheets?.[0]?.data?.[0]?.rowData||[];
       const extract=(rows,ni,fi)=>{const C=[],VC=[],B=[];for(const r of rows){const v=r.values||[];if(v.length<=fi)continue;const n=v[ni]?.userEnteredValue?.stringValue||'';const f=v[fi]?.userEnteredValue?.formulaValue||'';if(!n||!f)continue;if(/\*2[\s,)]/.test(f)||f.includes('*2,'))C.push(n);else if(f.includes('*1.5'))VC.push(n);else if(f.includes('*0.75'))B.push(n)}return{C,VC,B}};
       CV[cfg.id]={[cfg.teams[0]]:extract(rows,2,4),[cfg.teams[1]]:extract(rows,7,9)};
-    } else {
-      // Multi-team: check each team's points column for formulas + bg colors for B
+    } else if(cfg.gasSheet){
+      // Multi-team: detect from GAS proxy (org sheet has colors, public copy doesn't)
+      const gasData=await fetchGAS(cfg.gasSheet);
+      const bgs=gasData.backgrounds, vals=gasData.values;
+      if(!bgs){console.warn('No backgrounds from GAS');return}
       CV[cfg.id]={};
       const cols=cfg.teamCols;
       for(let t=0;t<cfg.teams.length;t++){
         const C=[],VC=[],B=[];
-        const pc=cols[t].pc, ptc=cols[t].ptc;
-        for(const r of rows){
-          const v=r.values||[];
-          if(v.length<=ptc)continue;
-          const name=v[pc]?.userEnteredValue?.stringValue||'';
-          const f=v[ptc]?.userEnteredValue?.formulaValue||'';
-          const bg=v[pc]?.effectiveFormat?.backgroundColor||{};
-          const rr=bg.red||1,gg=bg.green||1,bb=bg.blue||1;
+        const pc=cols[t].pc;
+        const startRow=cfg.gasDataStart||9, endRow=cfg.gasDataEnd||44;
+        for(let i=startRow;i<=endRow;i++){
+          if(!vals[i]||!bgs[i])continue;
+          const name=vals[i][pc];
+          const bg=bgs[i][pc]||'#ffffff';
           if(!name)continue;
-          // Check formula
-          if(f){
-            if(/\*2[\s,)]/.test(f)||f.includes('*2,'))C.push(name);
-            else if(f.includes('*1.5'))VC.push(name);
-            else if(f.includes('*0.75'))B.push(name);
-          }
-          // Fallback: check bg color for B (teal)
-          if(!f && Math.abs(rr-0.82)<0.05 && Math.abs(gg-0.88)<0.05 && Math.abs(bb-0.89)<0.05) B.push(name);
+          if(bg==='#00ff00'||bg==='#93c47d')C.push(name);
+          else if(bg==='#ff9900'||bg==='#f6b26b')VC.push(name);
+          else if(bg==='#d0e0e3'||bg==='#00ffff'||bg==='#a2c4c9')B.push(name);
         }
         CV[cfg.id][cfg.teams[t]]={C,VC,B};
       }
