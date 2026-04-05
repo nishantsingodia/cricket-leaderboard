@@ -414,7 +414,9 @@ async function detectCV(cfg){
     const url=`https://sheets.googleapis.com/v4/spreadsheets/${cfg.sheetId}?key=${API_KEY}&includeGridData=true&ranges=${encodeURIComponent(cfg.mainSheet)}!${range}&fields=sheets.data.rowData.values(userEnteredValue,effectiveFormat.backgroundColor)`;
     const resp=await fetch(url);
     const d=await resp.json();
+    if(d.error){console.error('SHEETS API ERROR for',cfg.id,':',JSON.stringify(d.error));CV[cfg.id]={};return}
     const rows=d.sheets?.[0]?.data?.[0]?.rowData||[];
+    console.log('detectCV raw for',cfg.id,': rows=',rows.length,'sample row[0]=',JSON.stringify(rows[0]?.values?.slice(0,10)?.map(c=>({s:c?.userEnteredValue?.stringValue,f:c?.userEnteredValue?.formulaValue,n:c?.userEnteredValue?.numberValue,bg:c?.effectiveFormat?.backgroundColor}))));
 
     if(cfg.type==='h2h'){
       const extract=(rows,ni,fi)=>{const C=[],VC=[],B=[];for(const r of rows){const v=r.values||[];if(v.length<=fi)continue;const n=v[ni]?.userEnteredValue?.stringValue||'';if(!n)continue;const f=v[fi]?.userEnteredValue?.formulaValue||'';if(f){if(/\*2[\s,)]/.test(f)||f.includes('*2,'))C.push(n);else if(f.includes('*1.5'))VC.push(n);else if(f.includes('*0.75'))B.push(n)}else{const bg=v[ni]?.effectiveFormat?.backgroundColor||{};const rr=bg.red||1,gg=bg.green||1,bb=bg.blue||1;if(Math.abs(rr-0.82)<0.05&&Math.abs(gg-0.88)<0.05&&Math.abs(bb-0.89)<0.05)B.push(n)}}return{C,VC,B}};
