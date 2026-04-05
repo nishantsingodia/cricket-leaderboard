@@ -410,7 +410,7 @@ async function detectCV(cfg){
   if(!cfg.sheetId)return;
   try{
     // Fetch ALL columns with formulas to detect C/VC/B for all teams
-    const range=cfg.type==='h2h'?'B7:K52':'A1:Y45';
+    const range=cfg.type==='h2h'?'A7:J52':'A1:Y45';
     const url=`https://sheets.googleapis.com/v4/spreadsheets/${cfg.sheetId}?key=${API_KEY}&includeGridData=true&ranges=${encodeURIComponent(cfg.mainSheet)}!${range}&fields=sheets.data.rowData.values(userEnteredValue,effectiveFormat.backgroundColor)`;
     const resp=await fetch(url);
     const d=await resp.json();
